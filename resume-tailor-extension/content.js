@@ -246,10 +246,10 @@ function extractLinkedIn() {
           url: window.location.href
         }
       };
-      console.log('[Resume Tailor] ✅ LinkedIn job found!');
+      console.log('[Resume Tailor] LinkedIn job found!');
       return result;
     } else {
-      console.log('[Resume Tailor] ❌ LinkedIn job NOT found');
+      console.log('[Resume Tailor] LinkedIn job NOT found');
       console.log('[Resume Tailor] Missing:', !title ? 'title' : '', !description ? 'description' : '');
       
       // Additional debug: Show what we can find
