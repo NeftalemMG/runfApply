@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RunF Apply- Terminal</title>
+  <link rel="stylesheet" href="landing.css">
+</head>
+<body>
+  <div class="terminal-container">
+    <div class="terminal-header">
+      <div class="header-left">
+        <div class="traffic-lights">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+        <div class="tab">
+          <span class="tab-icon">$</span>
+          <span class="tab-title">runF-Apply</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="session">ssh://localhost:8000</span>
+      </div>
+    </div>
+
+    <div class="terminal-body">
+      <div class="output" id="output">
+        <div class="line">
+          <span class="prompt">root@runF-Apply</span>
+          <span class="path">~</span>
+          <span class="symbol">$</span>
+          <span class="command">cat welcome.txt</span>
+        </div>
+        <!-- <div class="line output-text">
+          <pre class="ascii-art">
+ ██████  ███████ ███████ ██    ██ ███    ███ ███████ 
+ ██   ██ ██      ██      ██    ██ ████  ████ ██      
+ ██████  █████   ███████ ██    ██ ██ ████ ██ █████   
+ ██   ██ ██           ██ ██    ██ ██  ██  ██ ██      
+ ██   ██ ███████ ███████  ██████  ██      ██ ███████ 
+                                                      
+ ████████  █████  ██ ██       ██████  ██████          
+    ██    ██   ██ ██ ██      ██    ██ ██   ██         
+    ██    ███████ ██ ██      ██    ██ ██████          
+    ██    ██   ██ ██ ██      ██    ██ ██   ██         
+    ██    ██   ██ ██ ███████  ██████  ██   ██         
+          </pre>
+        </div> -->
+        <div class="line output-text">
+          <pre class="ascii-art">
+        ██████  ██    ██ ███    ██ ███████ 
+        ██   ██ ██    ██ ████   ██ ██      
+        ██████  ██    ██ ██ ██  ██ █████   
+        ██   ██ ██    ██ ██  ██ ██ ██      
+        ██   ██  ██████  ██   ████ ██ 
+                                            
+          █████  ██████  ██████  ██      ██    ██ 
+        ██   ██ ██   ██ ██   ██ ██      ██    ██ 
+        ███████ ██████  ██████  ██      ██    ██ 
+        ██   ██ ██      ██      ██       ██  ██  
+        ██   ██ ██      ██      ███████    ██    
+          </pre>
+        </div>
+
+        <div class="line output-text">AI-powered resume tailoring system v2.0.0</div>
+        <div class="line output-text">Type 'help' for available commands</div>
+        <div class="line">
+          <span class="prompt">root@runF-Apply</span>
+          <span class="path">~</span>
+          <span class="symbol">$</span>
+          <span class="command">ls -la features/</span>
+        </div>
+        <div class="line output-text">
+          <div class="ls-output">
+            <div class="ls-item">
+              <span class="permissions">-rwxr-xr-x</span>
+              <span class="owner">1 root</span>
+              <span class="size">2.4K</span>
+              <span class="date">Feb 08 00:00</span>
+              <span class="name">job-detection.sh</span>
+            </div>
+            <div class="ls-item">
+              <span class="permissions">-rwxr-xr-x</span>
+              <span class="owner">1 root</span>
+              <span class="size">5.1K</span>
+              <span class="date">Feb 08 00:00</span>
+              <span class="name">ai-tailor.py</span>
+            </div>
+            <div class="ls-item">
+              <span class="permissions">-rwxr-xr-x</span>
+              <span class="owner">1 root</span>
+              <span class="size">1.8K</span>
+              <span class="date">Feb 08 00:00</span>
+              <span class="name">cover-letter.sh</span>
+            </div>
+            <div class="ls-item">
+              <span class="permissions">drwxr-xr-x</span>
+              <span class="owner">2 root</span>
+              <span class="size">4.0K</span>
+              <span class="date">Feb 08 00:00</span>
+              <span class="name dir">platforms/</span>
+            </div>
+          </div>
+        </div>
+        <div class="line">
+          <span class="prompt">root@runF-Apply</span>
+          <span class="path">~</span>
+          <span class="symbol">$</span>
+          <span class="command">systemctl status</span>
+        </div>
+        <div class="line output-text">
+          <div class="status-grid">
+            <div class="status-item">
+              <div class="status-icon active"></div>
+              <span>API Server</span>
+              <span class="status-value">ACTIVE</span>
+            </div>
+            <div class="status-item">
+              <div class="status-icon active"></div>
+              <span>Job Detection</span>
+              <span class="status-value">RUNNING</span>
+            </div>
+            <div class="status-item">
+              <div class="status-icon active"></div>
+              <span>Claude AI</span>
+              <span class="status-value">CONNECTED</span>
+            </div>
+            <div class="status-item">
+              <div class="status-icon"></div>
+              <span>Chrome Extension</span>
+              <span class="status-value" id="ext-status">NOT INSTALLED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-line">
+        <span class="prompt">root@runF-Apply</span>
+        <span class="path">~</span>
+        <span class="symbol">$</span>
+        <input type="text" id="terminal-input" class="terminal-input" autofocus autocomplete="off" spellcheck="false">
+        <span class="cursor">█</span>
+      </div>
+    </div>
+
+    <div class="terminal-footer">
+      <div class="footer-left">
+        <span class="mode">NORMAL</span>
+        <span class="separator">|</span>
+        <span class="branch">main</span>
+      </div>
+      <div class="footer-right">
+        <span class="cpu">CPU: <span id="cpu">0%</span></span>
+        <span class="separator">|</span>
+        <span class="mem">MEM: <span id="mem">0MB</span></span>
+        <span class="separator">|</span>
+        <span class="time" id="time">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="landing.js"></script>
+</body>
+</html>

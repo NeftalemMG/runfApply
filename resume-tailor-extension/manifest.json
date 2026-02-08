@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Resume Tailor AI",
-  "version": "1.0.0",
-  "description": "Instantly tailor your resume and cover letter to any job posting",
+  "name": "RunF Apply",
+  "version": "2.0.3",
+  "description": "AI-powered resume tailoring",
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "https://*/*",
@@ -23,14 +24,15 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.linkedin.com/jobs/*",
+        "https://www.linkedin.com/*",
         "https://jobs.lever.co/*",
         "https://boards.greenhouse.io/*",
-        "https://*/*/careers/*",
-        "https://*/*/jobs/*"
+        "https://*.myworkdayjobs.com/*",
+        "https://*/*"
       ],
       "js": ["content.js"],
-      "css": ["content.css"]
+      "css": ["content.css"],
+      "run_at": "document_idle"
     }
   ],
   "background": {

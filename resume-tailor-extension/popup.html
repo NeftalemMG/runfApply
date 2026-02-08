@@ -3,87 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resume Tailor AI</title>
+  <title>RunF Apply</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
-    <!-- Glass Morphism Navigation -->
-    <nav class="glass-nav">
-      <div class="nav-content">
-        <div class="logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <linearGradient id="gradient" x1="3" y1="3" x2="21" y2="21">
-                <stop offset="0%" stop-color="#c084fc"/>
-                <stop offset="100%" stop-color="#86efac"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span>Resume Tailor</span>
+    <div class="header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <span class="brand-text">RunF Apply</span>
+        </div>
+        <div class="status">
+          <div class="status-indicator" id="status-indicator"></div>
+          <span id="status-text">Ready</span>
         </div>
       </div>
-    </nav>
+    </div>
 
-    <!-- Main Content -->
     <div class="content">
-      <!-- Status Section -->
-      <div id="status-section" class="section">
-        <div class="status-card glass-card">
-          <div class="status-indicator" id="status-indicator">
-            <div class="pulse"></div>
-            <span id="status-text">Detecting job posting...</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Job Info Section -->
-      <div id="job-section" class="section hidden">
-        <div class="job-card glass-card">
+      <div id="job-section" class="hidden">
+        <div class="job-card">
           <div class="job-header">
-            <h2 id="job-title">Senior Software Engineer</h2>
-            <p id="company-name">Company Name</p>
+            <div class="job-title" id="job-title">Software Engineer</div>
+            <div class="job-company" id="job-company">Company</div>
           </div>
           <div class="job-meta">
-            <span class="meta-badge">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="meta-item">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
               <span id="job-location">Remote</span>
-            </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Resume Upload Section -->
-      <div id="upload-section" class="section">
-        <div class="upload-card glass-card">
-          <div class="upload-area" id="upload-area">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
+      <div class="upload-section">
+        <div class="section-label">Resume</div>
+        
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt" hidden>
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <div class="upload-text">Drop file or click to upload</div>
+          <div class="upload-hint">PDF, DOC, DOCX, or TXT</div>
+        </div>
+
+        <div class="file-display hidden" id="file-display">
+          <div class="file-info">
+            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
             </svg>
-            <h3>Upload Your Resume</h3>
-            <p>Drop your master resume here or click to browse</p>
-            <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt" hidden>
-            <button class="upload-btn accent-btn" id="upload-btn">Choose File</button>
-          </div>
-          <div class="file-info hidden" id="file-info">
-            <div class="file-preview">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <div>
-                <p class="file-name" id="file-name">resume.pdf</p>
-                <p class="file-size" id="file-size">245 KB</p>
-              </div>
+            <div class="file-details">
+              <div class="file-name" id="file-name">resume.pdf</div>
+              <div class="file-size" id="file-size">245 KB</div>
             </div>
-            <button class="remove-btn" id="remove-file">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          </div>
+          <div class="file-actions">
+            <button class="icon-btn" id="edit-btn" title="Edit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="icon-btn" id="remove-btn" title="Remove">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
@@ -92,61 +82,68 @@
         </div>
       </div>
 
-      <!-- Action Button -->
-      <div class="action-section">
-        <button class="primary-btn" id="tailor-btn" disabled>
-          <span>Tailor Resume</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </button>
+      <div class="upload-section">
+        <div class="section-label">Custom Instructions (Optional)</div>
+        <textarea 
+          class="instructions-input" 
+          id="custom-instructions" 
+          placeholder="Focus on leadership, emphasize Python skills, keep to one page..."
+          rows="3"
+        ></textarea>
       </div>
 
-      <!-- Results Section -->
-      <div id="results-section" class="section hidden">
-        <div class="results-container">
-          <div class="result-tabs">
-            <button class="tab-btn active" data-tab="resume">Resume</button>
-            <button class="tab-btn" data-tab="cover-letter">Cover Letter</button>
+      <button class="primary-btn" id="tailor-btn" disabled>
+        <span>Generate</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+
+      <div id="results-section" class="hidden">
+        <div class="results">
+          <div class="tabs">
+            <button class="tab active" data-tab="resume">Resume</button>
+            <button class="tab" data-tab="cover">Cover Letter</button>
           </div>
-          
-          <div class="tab-content active" id="resume-tab">
-            <div class="result-card glass-card">
+
+          <div class="tab-content active" id="resume-content">
+            <div class="result-card">
               <div class="result-header">
-                <h3>Tailored Resume</h3>
+                <div class="result-title">Tailored Resume</div>
                 <button class="copy-btn" data-target="resume">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                   </svg>
                   Copy
                 </button>
               </div>
-              <div class="result-content" id="resume-content">
-                <div class="loading-spinner">
+              <div class="result-content" id="resume-text">
+                <div class="loading">
                   <div class="spinner"></div>
-                  <p>Tailoring your resume...</p>
+                  <div class="loading-text">Generating...</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="tab-content" id="cover-letter-tab">
-            <div class="result-card glass-card">
+          <div class="tab-content" id="cover-content">
+            <div class="result-card">
               <div class="result-header">
-                <h3>Cover Letter</h3>
-                <button class="copy-btn" data-target="cover-letter">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <div class="result-title">Cover Letter</div>
+                <button class="copy-btn" data-target="cover">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                   </svg>
                   Copy
                 </button>
               </div>
-              <div class="result-content" id="cover-letter-content">
-                <div class="loading-spinner">
+              <div class="result-content" id="cover-text">
+                <div class="loading">
                   <div class="spinner"></div>
-                  <p>Generating cover letter...</p>
+                  <div class="loading-text">Generating...</div>
                 </div>
               </div>
             </div>
@@ -154,27 +151,37 @@
 
           <div class="download-section">
             <button class="secondary-btn" id="download-btn">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              Download Both (PDF)
+              Download
             </button>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Settings Footer -->
-    <div class="footer glass-card">
-      <button class="settings-btn" id="settings-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
-        </svg>
-        Settings
-      </button>
+  <div id="editor-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Edit Resume</div>
+        <button class="modal-close" id="modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <textarea id="resume-editor" placeholder="Edit your resume..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-cancel" id="modal-cancel">Cancel</button>
+        <button class="modal-btn modal-btn-save" id="modal-save">Save</button>
+      </div>
     </div>
   </div>
 

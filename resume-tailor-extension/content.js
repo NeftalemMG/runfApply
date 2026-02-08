@@ -1,260 +1,393 @@
-// Content script - runs on job posting pages to extract information
+// Content script - Updated for LinkedIn's current structure (2025)
+console.log('[Resume Tailor] Content script LOADED v3');
+console.log('[Resume Tailor] URL:', window.location.href);
+console.log('[Resume Tailor] Time:', new Date().toISOString());
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('[Resume Tailor] MESSAGE RECEIVED:', request);
+  
   if (request.action === 'detectJobPosting') {
-    const jobData = extractJobPosting();
-    sendResponse(jobData);
+    try {
+      console.log('[Resume Tailor] Starting job detection...');
+      
+      detectJobWithRetry()
+        .then(jobData => {
+          console.log('[Resume Tailor] Detection result:', jobData);
+          sendResponse(jobData);
+        })
+        .catch(error => {
+          console.error('[Resume Tailor] ERROR in detection:', error);
+          sendResponse({ 
+            found: false, 
+            data: null, 
+            error: error.message 
+          });
+        });
+      
+      return true;
+    } catch (error) {
+      console.error('[Resume Tailor] ERROR in detection:', error);
+      sendResponse({ 
+        found: false, 
+        data: null, 
+        error: error.message 
+      });
+      return true;
+    }
   }
   return true;
 });
 
-function extractJobPosting() {
+async function detectJobWithRetry() {
+  for (let i = 0; i < 3; i++) {
+    const result = detectJob();
+    if (result.found) {
+      return result;
+    }
+    
+    console.log(`[Resume Tailor] Attempt ${i + 1} failed, retrying in 1000ms...`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  return detectJob();
+}
+
+function detectJob() {
   const url = window.location.href;
-  let jobData = { found: false, data: null };
-
-  // LinkedIn Jobs
+  console.log('[Resume Tailor] Detecting job on:', url);
+  
   if (url.includes('linkedin.com/jobs')) {
-    jobData = extractLinkedIn();
+    console.log('[Resume Tailor] Detected LinkedIn');
+    return extractLinkedIn();
   }
-  // Lever
-  else if (url.includes('jobs.lever.co')) {
-    jobData = extractLever();
+  if (url.includes('lever.co')) {
+    console.log('[Resume Tailor] Detected Lever');
+    return extractLever();
   }
-  // Greenhouse
-  else if (url.includes('boards.greenhouse.io')) {
-    jobData = extractGreenhouse();
+  if (url.includes('greenhouse.io')) {
+    console.log('[Resume Tailor] Detected Greenhouse');
+    return extractGreenhouse();
   }
-  // Generic career pages
-  else if (url.includes('/careers') || url.includes('/jobs')) {
-    jobData = extractGeneric();
+  if (url.includes('myworkdayjobs.com')) {
+    console.log('[Resume Tailor] Detected Workday');
+    return extractWorkday();
   }
-
-  return jobData;
+  if (url.includes('/careers') || url.includes('/jobs') || url.includes('/job')) {
+    console.log('[Resume Tailor] Using generic detection');
+    return extractGeneric();
+  }
+  
+  console.log('[Resume Tailor] No matching platform found');
+  return { found: false, data: null };
 }
 
 function extractLinkedIn() {
+  console.log('[Resume Tailor] LinkedIn extraction starting...');
+  
   try {
-    const title = document.querySelector('.job-details-jobs-unified-top-card__job-title')?.textContent.trim() ||
-                  document.querySelector('.jobs-unified-top-card__job-title')?.textContent.trim();
+    // Debug: Log all h1 and h2 elements to see what's available
+    console.log('[Resume Tailor] DEBUG: Looking for title elements...');
+    document.querySelectorAll('h1, h2').forEach((elem, i) => {
+      const text = elem.textContent.trim();
+      if (text && text.length > 3 && text.length < 200) {
+        console.log(`  [${i}] <${elem.tagName} class="${elem.className}">: "${text.substring(0, 80)}"`);
+      }
+    });
     
-    const company = document.querySelector('.job-details-jobs-unified-top-card__company-name')?.textContent.trim() ||
-                    document.querySelector('.jobs-unified-top-card__company-name')?.textContent.trim();
+    // Updated selectors for 2025 LinkedIn structure
+    const titleSelectors = [
+      // New structure (2024-2025)
+      'h1.t-24.t-bold',
+      'h2.t-24.t-bold', 
+      '.job-details-jobs-unified-top-card__job-title h1',
+      '.job-details-jobs-unified-top-card__job-title',
+      // Older structure
+      '.jobs-unified-top-card__job-title h1',
+      '.jobs-unified-top-card__job-title',
+      '.t-24.t-bold.job-details-jobs-unified-top-card__job-title',
+      // Generic fallbacks
+      'h1.job-title',
+      'h2.job-title',
+      '[data-job-title]',
+      'article h1',
+      'article h2',
+      // Last resort: any large heading
+      'h1.t-24',
+      'h2.t-24',
+      'h1',
+      'h2'
+    ];
     
-    const location = document.querySelector('.job-details-jobs-unified-top-card__bullet')?.textContent.trim() ||
-                     document.querySelector('.jobs-unified-top-card__bullet')?.textContent.trim();
+    let title = null;
+    for (const selector of titleSelectors) {
+      try {
+        const elem = document.querySelector(selector);
+        if (elem) {
+          const text = elem.textContent.trim();
+          // Filter out navigation/header titles
+          if (text && 
+              text.length > 3 && 
+              text.length < 200 &&
+              !text.toLowerCase().includes('linkedin') &&
+              !text.toLowerCase().includes('search') &&
+              !text.toLowerCase().includes('my network') &&
+              !text.toLowerCase().includes('messaging')) {
+            title = text;
+            console.log(`[Resume Tailor] ✓ Found title with "${selector}": "${title.substring(0, 50)}"`);
+            break;
+          }
+        }
+      } catch (e) {
+        // Selector failed, try next
+      }
+    }
     
-    const description = document.querySelector('.jobs-description-content__text')?.textContent.trim() ||
-                        document.querySelector('.jobs-description')?.textContent.trim() ||
-                        document.querySelector('.description__text')?.textContent.trim();
+    // Company extraction with updated selectors
+    const companySelectors = [
+      '.job-details-jobs-unified-top-card__company-name a',
+      '.job-details-jobs-unified-top-card__company-name',
+      '.jobs-unified-top-card__company-name a',
+      '.jobs-unified-top-card__company-name',
+      'a.app-aware-link[href*="/company/"]',
+      '.jobs-details-top-card__company-url',
+      '.jobs-company-name',
+      '[data-test-company-name]',
+      '.job-details-jobs-unified-top-card__company-name',
+      '.job-details-jobs-unified-top-card__job-title'
+    ];
+    
+    let company = 'Unknown Company';
+    for (const selector of companySelectors) {
+      try {
+        const elem = document.querySelector(selector);
+        if (elem) {
+          const text = elem.textContent.trim();
+          if (text && text.length > 1 && text.length < 100) {
+            company = text;
+            console.log(`[Resume Tailor] ✓ Found company with "${selector}": "${company}"`);
 
-    if (title && description) {
-      return {
+          }
+        }
+      } catch (e) {}
+    }
+    
+    // Location extraction
+    const locationSelectors = [
+      '.job-details-jobs-unified-top-card__primary-description-container .t-black--light.mt2',
+      '.job-details-jobs-unified-top-card__bullet',
+      '.jobs-unified-top-card__bullet',
+      '.jobs-unified-top-card__workplace-type',
+      '.jobs-details-top-card__location',
+      '[class*="location"]'
+    ];
+    
+    let location = 'Remote';
+    for (const selector of locationSelectors) {
+      try {
+        const elem = document.querySelector(selector);
+        if (elem) {
+          const text = elem.textContent.trim();
+          if (text && text.length > 2 && text.length < 100) {
+            location = text;
+            console.log(`[Resume Tailor] ✓ Found location with "${selector}": "${location}"`);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    // Description extraction (most reliable part)
+    const descriptionSelectors = [
+      '.jobs-description__content .jobs-description-content__text',
+      '.jobs-description-content__text',
+      '.jobs-description__content',
+      '.jobs-box__html-content',
+      '#job-details',
+      'article.jobs-description',
+      '[class*="job-description"]'
+    ];
+    
+    let description = '';
+    for (const selector of descriptionSelectors) {
+      try {
+        const elem = document.querySelector(selector);
+        if (elem) {
+          const text = elem.textContent.trim();
+          if (text.length > 100) {
+            description = text;
+            console.log(`[Resume Tailor] ✓ Found description with "${selector}": ${description.length} chars`);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    // Fallback to body if needed
+    if (!description || description.length < 100) {
+      description = document.body.textContent.trim();
+      console.log('[Resume Tailor] ⚠ Using body text as fallback:', description.length, 'chars');
+    }
+    
+    console.log('[Resume Tailor] LinkedIn extraction summary:');
+    console.log('  - Title:', title ? `"${title.substring(0, 50)}"` : '❌ NOT FOUND');
+    console.log('  - Company:', company);
+    console.log('  - Location:', location);
+    console.log('  - Description:', description.length, 'chars');
+    
+    if (title && description && description.length > 50) {
+      const result = {
         found: true,
-        data: {
-          title,
-          company: company || 'Unknown Company',
-          location: location || 'Location not specified',
-          description,
+        data: { 
+          title, 
+          company, 
+          location, 
+          description, 
           url: window.location.href
         }
       };
+      console.log('[Resume Tailor] ✅ LinkedIn job found!');
+      return result;
+    } else {
+      console.log('[Resume Tailor] ❌ LinkedIn job NOT found');
+      console.log('[Resume Tailor] Missing:', !title ? 'title' : '', !description ? 'description' : '');
+      
+      // Additional debug: Show what we can find
+      if (!title) {
+        console.log('[Resume Tailor] DEBUG: Available headings:');
+        document.querySelectorAll('h1, h2, h3').forEach((h, i) => {
+          if (i < 10) { // Only show first 10
+            console.log(`  ${h.tagName}: "${h.textContent.trim().substring(0, 60)}"`);
+          }
+        });
+      }
     }
-  } catch (error) {
-    console.error('LinkedIn extraction error:', error);
+  } catch (e) {
+    console.error('[Resume Tailor] LinkedIn extraction error:', e);
   }
-
+  
   return { found: false, data: null };
 }
 
 function extractLever() {
   try {
-    const title = document.querySelector('.posting-headline h2')?.textContent.trim();
-    const company = document.querySelector('.main-header-text a')?.textContent.trim();
-    const location = document.querySelector('.posting-categories .location')?.textContent.trim();
-    const description = document.querySelector('.content.content-wrapper')?.textContent.trim();
-
-    if (title && description) {
+    const title = document.querySelector('.posting-headline h2')?.textContent.trim() ||
+                  document.querySelector('h2')?.textContent.trim();
+    
+    const company = document.querySelector('.main-header-text a')?.textContent.trim() || 'Unknown Company';
+    const location = document.querySelector('.posting-categories .location')?.textContent.trim() || 'Remote';
+    const description = document.querySelector('.content')?.textContent.trim() || document.body.textContent.trim();
+    
+    if (title && description && description.length > 50) {
       return {
         found: true,
-        data: {
-          title,
-          company: company || 'Unknown Company',
-          location: location || 'Location not specified',
-          description,
-          url: window.location.href
-        }
+        data: { title, company, location, description, url: window.location.href }
       };
     }
-  } catch (error) {
-    console.error('Lever extraction error:', error);
+  } catch (e) {
+    console.error('[Resume Tailor] Lever error:', e);
   }
-
+  
   return { found: false, data: null };
 }
 
 function extractGreenhouse() {
   try {
-    const title = document.querySelector('#header .app-title')?.textContent.trim() ||
-                  document.querySelector('.app-title')?.textContent.trim();
+    const title = document.querySelector('.app-title')?.textContent.trim() ||
+                  document.querySelector('h1')?.textContent.trim();
     
-    const company = document.querySelector('#header .company-name')?.textContent.trim() ||
-                    document.querySelector('.company-name')?.textContent.trim();
+    const company = document.querySelector('.company-name')?.textContent.trim() || 'Unknown Company';
+    const location = document.querySelector('.location')?.textContent.trim() || 'Remote';
+    const description = document.querySelector('#content')?.textContent.trim() || document.body.textContent.trim();
     
-    const location = document.querySelector('.location')?.textContent.trim();
-    
-    const description = document.querySelector('#content')?.textContent.trim() ||
-                        document.querySelector('.content')?.textContent.trim();
-
-    if (title && description) {
+    if (title && description && description.length > 50) {
       return {
         found: true,
-        data: {
-          title,
-          company: company || 'Unknown Company',
-          location: location || 'Location not specified',
-          description,
-          url: window.location.href
-        }
+        data: { title, company, location, description, url: window.location.href }
       };
     }
-  } catch (error) {
-    console.error('Greenhouse extraction error:', error);
+  } catch (e) {
+    console.error('[Resume Tailor] Greenhouse error:', e);
   }
+  
+  return { found: false, data: null };
+}
 
+function extractWorkday() {
+  try {
+    const title = document.querySelector('[data-automation-id="jobPostingHeader"]')?.textContent.trim() ||
+                  document.querySelector('h2')?.textContent.trim();
+    
+    const company = document.querySelector('[data-automation-id="companyName"]')?.textContent.trim() || 'Unknown Company';
+    const location = document.querySelector('[data-automation-id="locations"]')?.textContent.trim() || 'Remote';
+    const description = document.querySelector('[data-automation-id="jobPostingDescription"]')?.textContent.trim() || document.body.textContent.trim();
+    
+    if (title && description && description.length > 50) {
+      return {
+        found: true,
+        data: { title, company, location, description, url: window.location.href }
+      };
+    }
+  } catch (e) {
+    console.error('[Resume Tailor] Workday error:', e);
+  }
+  
   return { found: false, data: null };
 }
 
 function extractGeneric() {
   try {
-    // Try common patterns for job title
-    const titleSelectors = [
-      'h1[class*="job"]',
-      'h1[class*="title"]',
-      'h1[class*="position"]',
-      '.job-title',
-      '.position-title',
-      '[data-job-title]',
-      'h1'
-    ];
-
-    let title = null;
-    for (const selector of titleSelectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent.trim()) {
-        title = el.textContent.trim();
-        break;
-      }
-    }
-
-    // Try common patterns for company
-    const companySelectors = [
-      '[class*="company"]',
-      '.organization',
-      '.employer',
-      'meta[property="og:site_name"]'
-    ];
-
-    let company = null;
-    for (const selector of companySelectors) {
-      const el = document.querySelector(selector);
-      if (el) {
-        company = el.textContent?.trim() || el.content?.trim();
-        if (company) break;
-      }
-    }
-
-    // Try common patterns for location
-    const locationSelectors = [
-      '[class*="location"]',
-      '[class*="office"]',
-      '.region',
-      '.city'
-    ];
-
-    let location = null;
-    for (const selector of locationSelectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent.trim()) {
-        location = el.textContent.trim();
-        break;
-      }
-    }
-
-    // Try to get full description
-    const descriptionSelectors = [
-      '[class*="description"]',
-      '[class*="content"]',
-      '[class*="details"]',
-      'article',
-      'main'
-    ];
-
-    let description = null;
-    for (const selector of descriptionSelectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent.trim().length > 200) {
-        description = el.textContent.trim();
-        break;
-      }
-    }
-
-    if (title && description) {
+    const title = document.querySelector('h1')?.textContent.trim() ||
+                  document.querySelector('h2')?.textContent.trim();
+    
+    const company = document.querySelector('meta[property="og:site_name"]')?.content ||
+                    document.title.split('|')[0].trim() ||
+                    'Unknown Company';
+    
+    const location = 'Remote';
+    const description = document.querySelector('main')?.textContent.trim() || document.body.textContent.trim();
+    
+    const descLower = description.toLowerCase();
+    const titleLower = (title || '').toLowerCase();
+    
+    const hasJobKeywords = 
+      titleLower.includes('engineer') ||
+      titleLower.includes('developer') ||
+      titleLower.includes('manager') ||
+      titleLower.includes('designer') ||
+      titleLower.includes('analyst') ||
+      descLower.includes('responsibilities') ||
+      descLower.includes('qualifications') ||
+      descLower.includes('requirements') ||
+      descLower.includes('experience') ||
+      descLower.includes('skills');
+    
+    if (title && description && description.length > 200 && hasJobKeywords) {
       return {
         found: true,
-        data: {
-          title,
-          company: company || document.title.split('|')[0].trim() || 'Unknown Company',
-          location: location || 'Location not specified',
-          description,
-          url: window.location.href
-        }
+        data: { title, company, location, description, url: window.location.href }
       };
     }
-  } catch (error) {
-    console.error('Generic extraction error:', error);
+  } catch (e) {
+    console.error('[Resume Tailor] Generic error:', e);
   }
-
+  
   return { found: false, data: null };
 }
 
-// Inject floating button when job is detected
-function injectFloatingButton() {
-  const existingBtn = document.getElementById('resume-tailor-float-btn');
-  if (existingBtn) return;
+console.log('[Resume Tailor] Content script setup complete');
 
-  const jobData = extractJobPosting();
-  if (!jobData.found) return;
-
-  const floatingBtn = document.createElement('div');
-  floatingBtn.id = 'resume-tailor-float-btn';
-  floatingBtn.innerHTML = `
-    <button class="resume-tailor-float">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <defs>
-          <linearGradient id="gradient" x1="3" y1="3" x2="21" y2="21">
-            <stop offset="0%" stop-color="#c084fc"/>
-            <stop offset="100%" stop-color="#86efac"/>
-          </linearGradient>
-        </defs>
-      </svg>
-      <span>Tailor Resume</span>
-    </button>
-  `;
-
-  document.body.appendChild(floatingBtn);
-
-  floatingBtn.querySelector('button').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'openPopup' });
-  });
-}
-
-// Try to inject button after page loads
+// Auto-detect on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(injectFloatingButton, 1000);
+    setTimeout(autoDetect, 2000);
   });
 } else {
-  setTimeout(injectFloatingButton, 1000);
+  setTimeout(autoDetect, 2000);
+}
+
+async function autoDetect() {
+  console.log('[Resume Tailor] Auto-detecting after page load...');
+  const result = await detectJobWithRetry();
+  console.log('[Resume Tailor] Auto-detect result:', result);
 }

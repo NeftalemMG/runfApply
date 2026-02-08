@@ -1,321 +1,304 @@
-// State management
-let uploadedFile = null;
-let jobData = null;
-let tailoredResume = null;
-let coverLetter = null;
+let file = null;
+let job = null;
+let resume = null;
+let cover = null;
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8000'; // Update this when deploying
+const API = 'http://localhost:8000';
 
-// Initialize popup
-document.addEventListener('DOMContentLoaded', async () => {
-  await initializePopup();
-  setupEventListeners();
-});
+document.addEventListener('DOMContentLoaded', init);
 
-async function initializePopup() {
-  // Check if we're on a job posting page
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+async function init() {
+  console.log('[Popup] Initializing...');
+  setupListeners();
+  await checkJob();
+  await loadFile();
+  console.log('[Popup] Initialization complete');
+}
+
+function setupListeners() {
+  const uploadZone = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('file-input');
   
-  chrome.tabs.sendMessage(tab.id, { action: 'detectJobPosting' }, (response) => {
-    if (chrome.runtime.lastError) {
-      updateStatus('Navigate to a job posting', false);
+  uploadZone.addEventListener('click', () => fileInput.click());
+  uploadZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+  
+  document.getElementById('remove-btn').addEventListener('click', removeFile);
+  document.getElementById('edit-btn').addEventListener('click', editFile);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-save').addEventListener('click', saveEdit);
+  document.getElementById('tailor-btn').addEventListener('click', generate);
+  
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+  
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => copy(btn.dataset.target));
+  });
+  
+  document.getElementById('download-btn').addEventListener('click', download);
+}
+
+async function checkJob() {
+  console.log('[Popup] Starting job detection...');
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log('[Popup] Active tab:', tab.url);
+    
+    // Check if we can inject on this page
+    if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      console.log('[Popup] Cannot inject on this page type');
+      setStatus('Cannot detect jobs on this page');
+      updateBtn();
       return;
     }
     
-    if (response && response.found) {
-      jobData = response.data;
-      updateStatus('Job posting detected!', true);
-      displayJobInfo(response.data);
-    } else {
-      updateStatus('No job posting detected', false);
+    // Always try to inject content script first (it's safe to inject multiple times)
+    console.log('[Popup] Injecting content script...');
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      console.log('[Popup] Content script injected successfully');
+    } catch (injectError) {
+      console.error('[Popup] Failed to inject content script:', injectError);
+      // Continue anyway - maybe it's already injected
     }
-  });
+    
+    // Wait a moment for content script to initialize
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Now try to communicate
+    console.log('[Popup] Sending message to content script...');
+    chrome.tabs.sendMessage(
+      tab.id,
+      { action: 'detectJobPosting' },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Popup] Chrome runtime error:', chrome.runtime.lastError.message);
+          setStatus('No job detected');
+          updateBtn();
+          return;
+        }
+        
+        handleJobResponse(response);
+      }
+    );
+  } catch (e) {
+    console.error('[Popup] Job detection error:', e);
+    setStatus('Error detecting job');
+    updateBtn();
+  }
+}
 
-  // Check for previously uploaded resume
+function handleJobResponse(response) {
+  console.log('[Popup] Received response:', response);
+  
+  if (response && response.found) {
+    job = response.data;
+    console.log('[Popup] Job detected:', job);
+    setStatus('Job detected ✓');
+    showJob(job);
+  } else {
+    console.log('[Popup] No job found in response');
+    setStatus('No job detected');
+  }
+  updateBtn();
+}
+
+async function loadFile() {
   const stored = await chrome.storage.local.get(['masterResume']);
   if (stored.masterResume) {
-    uploadedFile = stored.masterResume;
-    showFileInfo(stored.masterResume);
+    file = stored.masterResume;
+    console.log('[Popup] Loaded stored resume:', file.name);
+    showFile();
+  } else {
+    console.log('[Popup] No stored resume found');
   }
-
-  updateTailorButton();
+  updateBtn();
 }
 
-function setupEventListeners() {
-  // Upload button
-  document.getElementById('upload-btn').addEventListener('click', () => {
-    document.getElementById('file-input').click();
-  });
-
-  // File input
-  document.getElementById('file-input').addEventListener('change', handleFileUpload);
-
-  // Remove file
-  document.getElementById('remove-file').addEventListener('click', removeFile);
-
-  // Drag and drop
-  const uploadArea = document.getElementById('upload-area');
-  uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadArea.style.borderColor = 'var(--accent-purple)';
-  });
-
-  uploadArea.addEventListener('dragleave', () => {
-    uploadArea.style.borderColor = 'var(--glass-border)';
-  });
-
-  uploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadArea.style.borderColor = 'var(--glass-border)';
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  });
-
-  // Tailor button
-  document.getElementById('tailor-btn').addEventListener('click', tailorResume);
-
-  // Tab switching
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  // Copy buttons
-  document.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', () => copyContent(btn.dataset.target));
-  });
-
-  // Download button
-  document.getElementById('download-btn').addEventListener('click', downloadDocuments);
-
-  // Settings button
-  document.getElementById('settings-btn').addEventListener('click', openSettings);
-}
-
-function handleFileUpload(event) {
-  const file = event.target.files[0];
-  if (file) processFile(file);
-}
-
-async function processFile(file) {
-  // Validate file type
-  const validTypes = ['.pdf', '.doc', '.docx', '.txt'];
-  const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-  
-  if (!validTypes.includes(fileExtension)) {
-    alert('Please upload a PDF, DOC, DOCX, or TXT file.');
+async function handleFile(f) {
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (!['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+    alert('PDF, DOC, DOCX, or TXT only');
     return;
   }
-
-  // Read file content
+  
   const reader = new FileReader();
-  reader.onload = async (e) => {
-    const fileData = {
-      name: file.name,
-      size: file.size,
-      content: e.target.result,
-      type: file.type
-    };
-
-    uploadedFile = fileData;
-    
-    // Save to storage
-    await chrome.storage.local.set({ masterResume: fileData });
-    
-    showFileInfo(fileData);
-    updateTailorButton();
+  reader.onload = async e => {
+    file = { name: f.name, size: f.size, content: e.target.result };
+    await chrome.storage.local.set({ masterResume: file });
+    console.log('[Popup] Resume uploaded:', file.name);
+    showFile();
+    updateBtn();
   };
-
-  reader.readAsText(file);
+  reader.readAsText(f);
 }
 
-function showFileInfo(fileData) {
-  document.getElementById('upload-area').style.display = 'none';
-  document.getElementById('file-info').classList.remove('hidden');
-  document.getElementById('file-name').textContent = fileData.name;
-  document.getElementById('file-size').textContent = formatFileSize(fileData.size);
+function showFile() {
+  document.getElementById('upload-zone').classList.add('hidden');
+  document.getElementById('file-display').classList.remove('hidden');
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = formatSize(file.size);
 }
 
 async function removeFile() {
-  uploadedFile = null;
+  file = null;
   await chrome.storage.local.remove('masterResume');
-  
-  document.getElementById('upload-area').style.display = 'block';
-  document.getElementById('file-info').classList.add('hidden');
+  document.getElementById('upload-zone').classList.remove('hidden');
+  document.getElementById('file-display').classList.add('hidden');
   document.getElementById('file-input').value = '';
-  
-  updateTailorButton();
+  updateBtn();
 }
 
-function formatFileSize(bytes) {
+function editFile() {
+  document.getElementById('resume-editor').value = file.content;
+  document.getElementById('editor-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('editor-modal').classList.add('hidden');
+}
+
+async function saveEdit() {
+  file.content = document.getElementById('resume-editor').value;
+  await chrome.storage.local.set({ masterResume: file });
+  closeModal();
+}
+
+function showJob(data) {
+  document.getElementById('job-section').classList.remove('hidden');
+  document.getElementById('job-title').textContent = data.title;
+  document.getElementById('job-company').textContent = data.company;
+  document.getElementById('job-location').textContent = data.location;
+}
+
+function setStatus(text) {
+  console.log('[Popup] Status:', text);
+  document.getElementById('status-text').textContent = text;
+}
+
+function updateBtn() {
+  const isEnabled = !!(file && job);
+  console.log('[Popup] Generate button enabled:', isEnabled, '(file:', !!file, ', job:', !!job, ')');
+  document.getElementById('tailor-btn').disabled = !isEnabled;
+}
+
+async function generate() {
+  const resultsSection = document.getElementById('results-section');
+  const resumeText = document.getElementById('resume-text');
+  const coverText = document.getElementById('cover-text');
+  
+  resultsSection.classList.remove('hidden');
+  
+  resumeText.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">Generating resume...</div></div>';
+  coverText.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">Generating cover letter...</div></div>';
+  
+  const instructions = document.getElementById('custom-instructions').value;
+  
+  try {
+    const res = await fetch(`${API}/api/tailor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resume: file.content,
+        jobDescription: job.description,
+        jobTitle: job.title,
+        company: job.company,
+        location: job.location,
+        customInstructions: instructions || null
+      })
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`API error (${res.status}): ${errorText}`);
+    }
+    
+    const data = await res.json();
+    resume = data.resume;
+    cover = data.coverLetter;
+    
+    if (!resume || resume.trim().length === 0) {
+      throw new Error('Empty resume returned from API');
+    }
+    
+    if (!cover || cover.trim().length === 0) {
+      throw new Error('Empty cover letter returned from API');
+    }
+    
+    resumeText.textContent = resume;
+    coverText.textContent = cover;
+    
+    document.querySelectorAll('.copy-btn').forEach(btn => btn.disabled = false);
+    document.getElementById('download-btn').disabled = false;
+    
+  } catch (e) {
+    console.error('Generation error:', e);
+    resumeText.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444">
+      <svg style="width:48px;height:48px;margin:0 auto 16px;display:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <strong>Error:</strong> ${e.message}<br><br>
+      <small style="color:#666">Make sure the backend is running at ${API}</small>
+    </div>`;
+    coverText.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444">
+      <strong>Error:</strong> ${e.message}
+    </div>`;
+  }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('resume-content').classList.toggle('active', name === 'resume');
+  document.getElementById('cover-content').classList.toggle('active', name === 'cover');
+}
+
+async function copy(target) {
+  const text = target === 'resume' ? resume : cover;
+  if (!text) return;
+  
+  await navigator.clipboard.writeText(text);
+  const btn = document.querySelector(`[data-target="${target}"]`);
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+  setTimeout(() => btn.innerHTML = orig, 2000);
+}
+
+function download() {
+  if (!resume || !cover) return;
+  const text = `RESUME\n${'='.repeat(50)}\n\n${resume}\n\n\nCOVER LETTER\n${'='.repeat(50)}\n\n${cover}`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${job.company || 'job'}-application.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-function updateStatus(text, success = true) {
-  const statusText = document.getElementById('status-text');
-  const pulse = document.querySelector('.pulse');
-  
-  statusText.textContent = text;
-  
-  if (success) {
-    pulse.style.background = 'var(--accent-green)';
-    pulse.style.boxShadow = 'var(--shadow-glow-green)';
-  } else {
-    pulse.style.background = 'var(--accent-purple)';
-    pulse.style.boxShadow = 'var(--shadow-glow-purple)';
-  }
-}
-
-function displayJobInfo(data) {
-  document.getElementById('job-section').classList.remove('hidden');
-  document.getElementById('job-title').textContent = data.title || 'Job Title';
-  document.getElementById('company-name').textContent = data.company || 'Company Name';
-  document.getElementById('job-location').textContent = data.location || 'Location';
-}
-
-function updateTailorButton() {
-  const btn = document.getElementById('tailor-btn');
-  const canTailor = uploadedFile && jobData;
-  btn.disabled = !canTailor;
-}
-
-async function tailorResume() {
-  // Show results section with loading state
-  document.getElementById('results-section').classList.remove('hidden');
-  document.getElementById('resume-content').innerHTML = `
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Tailoring your resume...</p>
-    </div>
-  `;
-  document.getElementById('cover-letter-content').innerHTML = `
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Generating cover letter...</p>
-    </div>
-  `;
-
-  try {
-    // Call backend API
-    const response = await fetch(`${API_BASE_URL}/api/tailor`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        resume: uploadedFile.content,
-        jobDescription: jobData.description,
-        jobTitle: jobData.title,
-        company: jobData.company,
-        location: jobData.location
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to tailor resume');
-    }
-
-    const result = await response.json();
-    
-    tailoredResume = result.resume;
-    coverLetter = result.coverLetter;
-
-    // Display results
-    displayResults(result);
-    
-  } catch (error) {
-    console.error('Error:', error);
-    document.getElementById('resume-content').innerHTML = `
-      <div style="text-align: center; padding: 20px; color: var(--text-tertiary);">
-        <p>⚠️ Error: ${error.message}</p>
-        <p style="margin-top: 8px; font-size: 12px;">Make sure the backend server is running.</p>
-      </div>
-    `;
-    document.getElementById('cover-letter-content').innerHTML = `
-      <div style="text-align: center; padding: 20px; color: var(--text-tertiary);">
-        <p>⚠️ Error: ${error.message}</p>
-      </div>
-    `;
-  }
-}
-
-function displayResults(result) {
-  // Display resume
-  document.getElementById('resume-content').innerHTML = `
-    <pre style="white-space: pre-wrap; font-family: 'SF Pro Display', sans-serif;">${escapeHtml(result.resume)}</pre>
-  `;
-
-  // Display cover letter
-  document.getElementById('cover-letter-content').innerHTML = `
-    <pre style="white-space: pre-wrap; font-family: 'SF Pro Display', sans-serif;">${escapeHtml(result.coverLetter)}</pre>
-  `;
-}
-
-function switchTab(tabName) {
-  // Update tab buttons
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabName);
-  });
-
-  // Update tab content
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.toggle('active', content.id === `${tabName}-tab`);
-  });
-}
-
-async function copyContent(target) {
-  const content = target === 'resume' ? tailoredResume : coverLetter;
-  
-  if (!content) return;
-
-  try {
-    await navigator.clipboard.writeText(content);
-    
-    // Show feedback
-    const btn = document.querySelector(`[data-target="${target}"]`);
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-      Copied!
-    `;
-    
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-    }, 2000);
-  } catch (error) {
-    console.error('Failed to copy:', error);
-  }
-}
-
-function downloadDocuments() {
-  if (!tailoredResume || !coverLetter) return;
-
-  // Create a text file with both documents
-  const content = `TAILORED RESUME\n${'='.repeat(50)}\n\n${tailoredResume}\n\n\nCOVER LETTER\n${'='.repeat(50)}\n\n${coverLetter}`;
-  
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tailored-application-${jobData.company || 'job'}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function openSettings() {
-  // Open settings page or chrome extension options
-  chrome.runtime.openOptionsPage();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
